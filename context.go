@@ -276,14 +276,17 @@ func (ctx *Context) doConnect(w http.ResponseWriter, r *http.Request) (b bool) {
 		hijConn.Close()
 		remoteConn.Close()
 	case ConnectMitm:
-		tlsConfig := &tls.Config{}
-		cert := ctx.Prx.signer.SignHost(host)
-		if cert == nil {
-			hijConn.Close()
-			ctx.doError("Connect", ErrTLSSignHost, err)
-			return
+		tlsConfig := &tls.Config{
+			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				cert := ctx.Prx.signer.SignHost(chi.ServerName)
+				if cert == nil {
+					ctx.doError("Connect", ErrTLSSignHost, err)
+					hijConn.Close()
+					return nil, ErrTLSSignHost
+				}
+				return cert, nil
+			},
 		}
-		tlsConfig.Certificates = append(tlsConfig.Certificates, *cert)
 		if _, err := hijConn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n")); err != nil {
 			hijConn.Close()
 			if !isConnectionClosed(err) {
