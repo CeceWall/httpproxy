@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"math/big"
 	mrand "math/rand"
 	"net"
@@ -97,13 +98,21 @@ func SignHosts(ca tls.Certificate, hosts []string) (*tls.Certificate, error) {
 	end, _ := time.Parse("2006-01-02", "2038-01-19")
 	serial := hashSortedBigInt(append(hosts, "1"))
 	template := x509.Certificate{
-		SerialNumber:          serial,
-		Issuer:                x509ca.Subject,
-		Subject:               x509ca.Subject,
+		SerialNumber: serial,
+		Issuer:       x509ca.Subject,
+		Subject: pkix.Name{
+			Country:            []string{"CN"},
+			Organization:       []string{"HttpProxy"},
+			OrganizationalUnit: []string{"HttpProxy"},
+			Province:           []string{"HttpProxy"},
+			CommonName:         hosts[0],
+			Locality:           []string{"HttpProxy"},
+		},
 		NotBefore:             start,
 		NotAfter:              end,
+		IsCA:                  false,
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 	}
 	for _, h := range hosts {
